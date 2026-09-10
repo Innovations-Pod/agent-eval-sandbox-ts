@@ -1,0 +1,39 @@
+{
+  "name": "agent-eval-sandbox-ts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Пісочниця для тестування мульти-агентних LLM-систем — порт з Python на TypeScript",
+  "scripts": {
+    "chat": "tsx chat.ts",
+    "run": "tsx evals/runExperiment.ts",
+    "report": "tsx evals/report.ts",
+    "typecheck": "tsc --noEmit",
+    "trace": "tsx trace.ts",
+    "datasets": "tsx datasets.ts",
+    "promote": "tsx promote.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.70.0",
+    "@arizeai/openinference-semantic-conventions": "^2.7.0",
+    "@arizeai/phoenix-client": "^7.8.0",
+    "@arizeai/phoenix-otel": "^2.2.0",
+    "@huggingface/transformers": "^4.2.0",
+    "@langchain/anthropic": "^1.5.9",
+    "@langchain/classic": "^1.0.46",
+    "@langchain/community": "^1.1.29",
+    "@langchain/core": "^1.2.9",
+    "@langchain/langgraph": "^1.4.14",
+    "@langchain/langgraph-supervisor": "^1.1.1",
+    "@opentelemetry/api": "^1.9.0",
+    "dotenv": "^17.0.0",
+    "langchain": "^1.5.10",
+    "okapibm25": "^1.4.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
