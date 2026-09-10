@@ -1,13 +1,13 @@
-# Тарифи на доставку «Орбіта Логістик» (діють з 01.01.2026)
+# Orbita Logistics delivery tariffs (effective 2026-01-01)
 
-| Напрямок | Базова ставка | За кг понад 5 кг | Мінімальна вартість |
+| Direction | Base rate | Per kg over 5 kg | Minimum charge |
 |---|---|---|---|
-| Місто (в межах міста) | 60 грн | 8 грн/кг | 60 грн |
-| Міжміський (Україна) | 95 грн | 12 грн/кг | 95 грн |
-| Міжнародний (ЄС) | 480 грн | 55 грн/кг | 480 грн |
+| City (within one city) | 60 UAH | 8 UAH/kg | 60 UAH |
+| Domestic (Ukraine) | 95 UAH | 12 UAH/kg | 95 UAH |
+| International (EU) | 480 UAH | 55 UAH/kg | 480 UAH |
 
-Правила:
-- Базова ставка включає перші 5 кг ваги.
-- Оголошена цінність страхується окремо: 1% від суми оголошеної цінності.
-- Габаритна вага рахується як Д×Ш×В (см) / 4000 і застосовується, якщо вона більша за фактичну.
-- Післяплата (накладений платіж): 2% від суми переказу, мінімум 20 грн.
+Rules:
+- The base rate covers the first 5 kg of weight.
+- Declared value is insured separately: 1% of the declared amount.
+- Volumetric weight is L×W×H (cm) / 4000 and applies when it exceeds the actual weight.
+- Cash on delivery: 2% of the transferred amount, minimum 20 UAH.

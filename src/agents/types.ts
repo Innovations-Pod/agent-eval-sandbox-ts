@@ -1,60 +1,60 @@
-/** Типи, якими описуються агенти й інструменти. Жодної конкретики. */
+/** The types that describe agents and tools. Nothing concrete here. */
 import type { z } from "zod";
 
-/** Один знайдений документ у термінах OpenInference. */
+/** One retrieved document, in OpenInference terms. */
 export interface RetrievedDoc {
   id: string;
   content: string;
   score: number;
 }
 
-/** Спільна частина будь-якого листка дерева виконання. */
+/** The part shared by every leaf of the execution tree. */
 interface LeafToolBase {
   name: string;
   description: string;
   input: z.ZodObject<z.ZodRawShape>;
-  /** Може бути синхронним або асинхронним — векторний пошук чекає на модель,
-   *  калькулятор не чекає ні на що. Рантайм чекає в обох випадках. */
+  /** May be sync or async — vector search waits on a model, the calculator
+   *  waits on nothing. The runtime awaits either way. */
   run: (args: Record<string, unknown>) => string | Promise<string>;
 }
 
-/** Звичайна детермінована функція. */
+/** An ordinary deterministic function. */
 export interface PlainTool extends LeafToolBase {
   kind: "tool";
 }
 
-/** Пошук по документах. Окремий вид, бо Phoenix розмічає його інакше
- *  і вміє рахувати по ньому метрики ретріву. */
+/** Document search. A separate kind, because Phoenix annotates it differently
+ *  and can compute retrieval metrics from it. */
 export interface RetrieverTool extends LeafToolBase {
   kind: "retriever";
-  /** Що показати входом спана — сам запит, а не JSON аргументів. */
+  /** What to show as the span input — the query itself, not the argument JSON. */
   query: (args: Record<string, unknown>) => string;
-  /** Як розібрати результат у документи. */
+  /** How to parse the result into documents. */
   documents: (out: string) => RetrievedDoc[];
 }
 
 /**
- * Розмічений union, а не булеан із опціональними полями: `query` і `documents`
- * існують рівно тоді, коли kind === "retriever", і компілятор це знає. Тому в
- * рантаймі немає ні прапорців, ні `!`.
+ * A tagged union rather than a boolean with optional fields: `query` and `documents`
+ * exist exactly when kind === "retriever", and the compiler knows it. That is why the
+ * runtime carries neither flags nor `!`.
  */
 export type LeafTool = PlainTool | RetrieverTool;
 
-/** Той самий рядок, що й у Step.kind — вони навмисно збігаються. */
+/** The same string as in Step.kind — they match on purpose. */
 export type LeafKind = LeafTool["kind"];
 
-/** Вузол дерева виконання: промпт + права виклику. */
+/** A node of the execution tree: a prompt plus call permissions. */
 export interface AgentSpec {
   readonly name: string;
   readonly prompt: string;
   /**
-   * ТОПОЛОГІЯ: кого цей агент має право викликати. У списку можуть стояти і
-   * інструменти, і інші агенти — для того, хто викликає, вони не відрізняються
-   * (патерн Composite), тому список один і простір імен спільний.
+   * TOPOLOGY: who this agent is allowed to call. The list may hold both tools and
+   * other agents — to the caller they are indistinguishable (the Composite pattern),
+   * which is why there is one list and one shared namespace.
    */
   readonly canCall: readonly string[];
-  /** Як агент виглядає для того, хто його викликає. */
+  /** How the agent looks to whoever calls it. */
   readonly description: string;
-  /** Назва єдиного аргументу в його схемі. */
+  /** The name of the single argument in its schema. */
   readonly arg: string;
 }

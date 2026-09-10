@@ -1,9 +1,9 @@
-/** Збір подій прогону. Жодного OpenTelemetry тут немає — лише дані.
+/** Collecting the events of a run. There is no OpenTelemetry here — only data.
  *
- * Спани будуються потім, одним синхронним проходом (`emitSpans`). Спроба
- * створювати їх просто в колбеках провалилась: колбеки LangChain приходять
- * з різних асинхронних контекстів, і батьківський контекст до них не доїжджає —
- * спани виходили або сиротами, або з посиланням на неіснуючого батька.
+ * Spans are built afterwards, in one synchronous pass (`emitSpans`). Creating them
+ * straight from the callbacks failed: LangChain callbacks arrive from different async
+ * contexts and the parent context never reaches them — spans came out either orphaned
+ * or pointing at a parent that does not exist.
  */
 import { BaseCallbackHandler } from "@langchain/core/callbacks/base";
 import type { BaseMessage } from "@langchain/core/messages";
@@ -32,17 +32,17 @@ export interface Event {
   docs: RetrievedDoc[];
   inputTokens: number;
   outputTokens: number;
-  /** Заповнюється лише для викликів моделі — без неї Phoenix не порахує вартість. */
+  /** Filled in only for model calls — without it Phoenix cannot compute cost. */
   model?: string;
-  /** Діалог, який пішов у модель, і те, що вона відповіла. */
+  /** The conversation sent to the model, and what it answered. */
   inputMessages?: ChatMessage[];
   outputMessage?: ChatMessage;
 }
 
 /**
- * Вміст повідомлення буває масивом блоків (текст, tool_use, tool_result), і
- * `String(content)` на ньому дає «[object Object],[object Object]» — саме це
- * і показував Phoenix. Розгортаємо блоки в читабельний текст.
+ * Message content is sometimes an array of blocks (text, tool_use, tool_result), and
+ * `String(content)` on that gives “[object Object],[object Object]” — which is exactly
+ * what Phoenix used to show. We unfold the blocks into readable text.
  */
 export function contentText(content: unknown): string {
   if (typeof content === "string") return content;
@@ -50,12 +50,12 @@ export function contentText(content: unknown): string {
   return content
     .map((block) => {
       const b = block as Record<string, unknown>;
-      // Роздуми моделі — не частина відповіді: у трейсі вони шум, а в `answer`
-      // просто неправда, бо витісняють справжній текст.
+      // The model's thinking is not part of the answer: noise in the trace, and in
+      // `answer` simply untrue, because it crowds out the real text.
       if (b.type === "thinking" || b.type === "redacted_thinking") return "";
       if (typeof b.text === "string") return b.text;
       if (b.type === "tool_use") {
-        return `→ виклик ${String(b.name)}(${JSON.stringify(b.input ?? {})})`;
+        return `→ call ${String(b.name)}(${JSON.stringify(b.input ?? {})})`;
       }
       if (b.type === "tool_result") return `← ${contentText(b.content)}`;
       return JSON.stringify(b);
@@ -65,10 +65,10 @@ export function contentText(content: unknown): string {
 }
 
 /**
- * Колбеки віддають не рядок, а `ToolMessage`. `JSON.stringify` на ньому дає
- * серіалізований конверт LangChain (`{"lc":1,"type":"constructor",...}`), а не
- * результат інструмента — і тоді розбір документів тихо падає, а в спан
- * потрапляє службове сміття замість відповіді.
+ * The callbacks hand back a `ToolMessage`, not a string. `JSON.stringify` on it gives
+ * LangChain's serialised envelope (`{"lc":1,"type":"constructor",...}`) rather than the
+ * tool's result — and then document parsing quietly fails and the span gets internal
+ * clutter instead of the answer.
  */
 function textOf(output: unknown): string {
   if (typeof output === "string") return output;
@@ -92,10 +92,10 @@ export class RunRecorder extends BaseCallbackHandler {
   outputTokens = 0;
 
   private byId = new Map<string, Event>();
-  /** runId вузла фреймворку → runId найближчого змістовного предка. */
+  /** runId of a framework node → runId of the nearest meaningful ancestor. */
   private passthrough = new Map<string, string | undefined>();
 
-  /** Найближчий предок, який ми залишаємо у дереві. */
+  /** The nearest ancestor we keep in the tree. */
   private parentOf(runId?: string): string | undefined {
     let p = runId;
     while (p && !this.byId.has(p)) p = this.passthrough.get(p);
@@ -115,10 +115,10 @@ export class RunRecorder extends BaseCallbackHandler {
   }
 
   /**
-   * Ланцюги. Суб-агенти приходять сюди двічі — як інструмент батька і як
-   * власний ланцюг, тож їх беремо в `handleToolStart`, щоб не роздвоювати.
-   * Виняток один: КОРЕНЕВИЙ агент (супервізор). Його ніхто не викликає як
-   * інструмент — він і є граф, тому єдина нагода створити для нього спан тут.
+   * Chains. Sub-agents arrive here twice — as the parent's tool and as a chain of
+   * their own, so we take them in `handleToolStart` to avoid duplicating them.
+   * There is one exception: the ROOT agent (the supervisor). Nobody calls it as a
+   * tool — it is the graph, so this is the only chance to create a span for it.
    */
   override async handleChainStart(
     _c: Serialized, _i: unknown, runId: string, parentRunId?: string,
@@ -142,7 +142,7 @@ export class RunRecorder extends BaseCallbackHandler {
     }
   }
 
-  // ---- інструменти й суб-агенти
+  // ---- tools and sub-agents
   override async handleToolStart(
     _t: Serialized, input: string, runId: string, parentRunId?: string,
     _tags?: string[], _meta?: Record<string, unknown>, runName?: string,
@@ -152,7 +152,7 @@ export class RunRecorder extends BaseCallbackHandler {
     const kind: Event["kind"] = name in AGENTS ? "agent" : (leaf?.kind ?? "tool");
     let shown = input;
     if (leaf?.kind === "retriever") {
-      try { shown = leaf.query(JSON.parse(input) as Record<string, unknown>); } catch { /* лишаємо як є */ }
+      try { shown = leaf.query(JSON.parse(input) as Record<string, unknown>); } catch { /* leave as is */ }
     }
     this.open(runId, parentRunId, name, kind, shown);
   }
@@ -164,20 +164,20 @@ export class RunRecorder extends BaseCallbackHandler {
     ev.output = textOf(output);
 
     const leaf = LEAF_TOOLS[ev.name];
-    if (leaf?.kind === "retriever" && !ev.output.startsWith("ПОМИЛКА")) {
+    if (leaf?.kind === "retriever" && !ev.output.startsWith("ERROR")) {
       try {
         ev.docs = leaf.documents(ev.output);
         this.retrieved.push(...ev.docs.map((d) => d.content));
-      } catch { /* формат не той — телеметрія не має падати */ }
+      } catch { /* wrong format — telemetry must not bring the run down */ }
     }
   }
 
   override async handleToolError(err: unknown, runId: string): Promise<void> {
     const ev = this.byId.get(runId);
-    if (ev) { ev.end = Date.now(); ev.output = `ПОМИЛКА: ${String(err)}`; }
+    if (ev) { ev.end = Date.now(); ev.output = `ERROR: ${String(err)}`; }
   }
 
-  // ---- виклики моделі
+  // ---- model calls
   override async handleChatModelStart(
     _llm: Serialized, messages: BaseMessage[][], runId: string, parentRunId?: string,
     extraParams?: Record<string, unknown>,
@@ -192,8 +192,8 @@ export class RunRecorder extends BaseCallbackHandler {
     });
     const text = chat.map((m) => `${m.role}: ${m.content}`).join("\n---\n");
     this.open(runId, parentRunId, "llm.chat", "llm", text);
-    // Назву моделі беремо з параметрів самого виклику, а не з конфігу: у графі
-    // різні агенти можуть колись їхати на різних моделях.
+    // The model name comes from the call's own parameters rather than from the config:
+    // one day different agents in the graph may run on different models.
     const params = extraParams?.invocation_params as { model?: string } | undefined;
     const ev = this.byId.get(runId);
     if (ev) { ev.model = params?.model ?? AGENT_MODEL; ev.inputMessages = chat; }
@@ -230,7 +230,7 @@ export class RunRecorder extends BaseCallbackHandler {
     }
   }
 
-  /** Траєкторія й кроки — у тому ж вигляді, що давав власний рантайм. */
+  /** Trajectory and steps — in the same shape our own runtime used to produce. */
   steps(): Step[] {
     const depth = new Map<string, number>();
     return this.events
@@ -239,7 +239,7 @@ export class RunRecorder extends BaseCallbackHandler {
         const d = e.parent === undefined ? 0 : (depth.get(e.parent) ?? 0) + 1;
         depth.set(e.id, d);
         let input: unknown = e.input;
-        try { input = JSON.parse(e.input); } catch { /* не JSON */ }
+        try { input = JSON.parse(e.input); } catch { /* not JSON */ }
         return { kind: e.kind, name: e.name, input, output: e.output, depth: d };
       });
   }

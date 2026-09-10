@@ -1,7 +1,7 @@
-# Політика повернень і відшкодувань
+# Returns and refunds policy
 
-- Повернення відправлення відправнику коштує 50% від початкової вартості доставки.
-- Заява на відшкодування за пошкодження подається протягом 7 календарних днів з дати вручення.
-- Максимальне відшкодування без оголошеної цінності — 500 грн.
-- З оголошеною цінністю відшкодовується фактична шкода, але не більше оголошеної суми.
-- Відшкодування виплачується протягом 30 календарних днів після затвердження заяви.
+- Returning a shipment to the sender costs 50% of the original delivery charge.
+- A damage claim must be filed within 7 calendar days of the delivery date.
+- The maximum refund without a declared value is 500 UAH.
+- With a declared value, actual damage is refunded, up to the declared amount.
+- Refunds are paid within 30 calendar days of the claim being approved.

@@ -1,18 +1,18 @@
-/** Нормалізоване злиття скорів — те, на що Weaviate перейшов з RRF у v1.24.
+/** Normalised score fusion — what Weaviate moved to from RRF in v1.24.
  *
- * RRF бере МІСЦЯ й викидає скори. Через це втрачається впевненість: документ
- * зі скором 0.88 і документ зі скором 0.81 для нього просто «перший» і «другий».
+ * RRF takes RANKS and throws the scores away. Confidence is lost along with them:
+ * a document scoring 0.88 and one scoring 0.81 are merely “first” and “second” to it.
  *
- * relativeScoreFusion натомість min-max нормалізує кожен список окремо
- * (найкращий → 1, найгірший → 0) і додає з вагами. Відносні відстані
- * зберігаються, і впевнена перемога лишається впевненою.
+ * relativeScoreFusion instead min-max normalises each list separately (best → 1,
+ * worst → 0) and adds them with weights. Relative distances survive, and a confident
+ * win stays a confident win.
  */
 import { CHUNKS, type Hit, type Retriever } from "./corpus.js";
 import { bm25Retriever } from "./bm25.js";
 import { langchainRetriever } from "./langchain.js";
 import { WEIGHTS } from "./hybrid.js";
 
-/** min-max: найкращий стає 1, найгірший 0. Відсутні в списку лишаються 0. */
+/** min-max: the best becomes 1, the worst 0. Anything absent from a list stays 0. */
 function normalise(hits: Hit[]): Map<string, number> {
   const scores = hits.map((h) => h.score);
   const min = Math.min(...scores, 0);

@@ -1,8 +1,8 @@
-/** Точка складання системи (composition root).
+/** The composition root of the system.
  *
- * Реалізація циклу — LangGraph (`src/runtime/`). Реєстр агентів, промпти та
- * інструменти живуть окремо в `src/agents/` і про фреймворк не знають:
- * саме тому заміна рантайму не зачепила жодного оголошення агента.
+ * The loop is implemented by LangGraph (`src/runtime/`). The agent registry, the prompts
+ * and the tools live separately in `src/agents/` and know nothing of the framework:
+ * that is precisely why replacing the runtime touched not one agent declaration.
  */
 export { AGENTS, ENTRY_POINT, LEAF_TOOLS, topology } from "./agents/index.js";
 export { RunResult, type RunOutput, type Step } from "./agents/result.js";

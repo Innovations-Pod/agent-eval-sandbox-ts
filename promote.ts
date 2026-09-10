@@ -1,13 +1,13 @@
-/** Перетворює реальний трейс на кейс датасету — з траєкторією як еталоном.
+/** Turns a real trace into a dataset case — with the trajectory as ground truth.
  *
- * Кнопка «add to dataset» у Phoenix копіює лише вхід і вихід спана, тому
- * `expected_trajectory` там нізвідки взятися. Ця команда дістає траєкторію
- * з атрибута `mas.trajectory` кореневого спана й кладе її в очікування.
+ * The “add to dataset” button in Phoenix copies only a span's input and output, so
+ * `expected_trajectory` has nowhere to come from there. This command pulls the trajectory
+ * out of the root span's `mas.trajectory` attribute and files it as the expectation.
  *
- * ВАЖЛИВО, і це не формальність: фактична траєкторія стає ОЧІКУВАНОЮ. Тобто
- * ти заморожуєш поточну поведінку як правильну. Це регресійний тест
- * («не зламалось порівняно з учора»), а не ground truth («має бути так»).
- * Кожен такий кейс треба переглянути очима — інколи заморожується баг.
+ * IMPORTANT, and this is not a formality: the ACTUAL trajectory becomes the EXPECTED one.
+ * That is, you freeze current behaviour as correct. This is a regression test (“nothing
+ * broke compared to yesterday”), not ground truth (“this is how it should be”).
+ * Every such case needs a human read — sometimes what gets frozen is a bug.
  */
 import { createClient } from "@arizeai/phoenix-client";
 import { appendDatasetExamples } from "@arizeai/phoenix-client/datasets";
@@ -31,26 +31,26 @@ const value = (n: string): string | undefined => {
 const datasetRef = value("dataset");
 if (!datasetRef) {
   console.error(
-    "вжиток: npm run promote -- --dataset <id|назва> [--trace <id>] [--last N] [--project <імʼя>]",
+    "usage: npm run promote -- --dataset <id|name> [--trace <id>] [--last N] [--project <name>]",
   );
   process.exit(1);
 }
 const project = value("project") ?? PROJECT_NAME;
 const last = Number(value("last") ?? 1);
 
-// ---- дістаємо спани проєкту
+// ---- fetch the project's spans
 const projects = (await (await fetch(`${PHOENIX_ENDPOINT}/v1/projects?limit=100`)).json()) as
   { data: { id: string; name: string }[] };
 const found = projects.data.find((p) => p.name === project);
 if (!found) {
-  console.error(`проєкт «${project}» не знайдено`);
+  console.error(`project “${project}” not found`);
   process.exit(1);
 }
 const spans = (await (await fetch(
   `${PHOENIX_ENDPOINT}/v1/projects/${found.id}/spans?limit=1000`,
 )).json()) as { data: Span[] };
 
-// ---- кореневі спани прогонів, найновіші першими
+// ---- root spans of the runs, newest first
 const roots = spans.data
   .filter((s) => s.name === "mas.run" && s.parent_id === null)
   .sort((a, b) => +new Date(b.start_time) - +new Date(a.start_time));
@@ -61,7 +61,7 @@ const chosen = wantedTrace
   : roots.slice(0, last);
 
 if (chosen.length === 0) {
-  console.error("не знайдено жодного прогону — спершу зроби npm run chat");
+  console.error("no runs found — do npm run chat first");
   process.exit(1);
 }
 
@@ -75,8 +75,8 @@ const examples = chosen.map((root) => {
     output: {
       reference: answer,
       expected_trajectory: trajectory,
-      // Порожні: заповнюються руками. Автоматично сюди нічого класти не можна —
-      // «жодного забороненого рядка» це рішення людини, а не спостереження.
+      // Left empty: filled in by hand. Nothing may be put here automatically —
+      // “no forbidden string” is a human decision, not an observation.
       must_contain: [] as string[],
       must_not_contain: [] as string[],
       category: "captured",
@@ -95,14 +95,14 @@ const selector = datasetRef.startsWith("RGF0YXNl")
   : { datasetName: datasetRef };
 const { datasetId } = await appendDatasetExamples({ client, dataset: selector, examples });
 
-console.log(`\nдодано ${examples.length} кейс(ів) у датасет ${datasetId}\n`);
+console.log(`\nadded ${examples.length} case(s) to dataset ${datasetId}\n`);
 for (const e of examples) {
   console.log(`  ${e.metadata.id}`);
-  console.log(`    питання:    ${e.input.question.slice(0, 66)}`);
-  console.log(`    траєкторія: ${e.output.expected_trajectory.join(" → ")}`);
+  console.log(`    question:   ${e.input.question.slice(0, 66)}`);
+  console.log(`    trajectory: ${e.output.expected_trajectory.join(" → ")}`);
 }
 console.log(
-  "\n⚠ Фактична поведінка стала очікуваною. Перевір траєкторії очима — " +
-  "якщо агент учора ходив неправильно, ти щойно зафіксував це як норму.\n" +
-  "must_contain / must_not_contain лишились порожні: заповни їх у Phoenix або в коді.\n",
+  "\n⚠ Actual behaviour has become the expectation. Read the trajectories yourself — " +
+  "if the agent was going the wrong way yesterday, you have just recorded that as normal.\n" +
+  "must_contain / must_not_contain were left empty: fill them in, in Phoenix or in code.\n",
 );

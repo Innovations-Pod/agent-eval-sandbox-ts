@@ -1,12 +1,12 @@
-/** Читабельний вигляд останнього трейсу.
+/** A readable view of the latest trace.
  *
- * LangGraph пише багато внутрішньої механіки: __start__, RunnableSequence,
- * RunnableLambda, prompt, ChannelWrite. Вони нічого не кажуть про твою систему,
- * але роздувають дерево втричі.
+ * LangGraph writes a lot of internal machinery: __start__, RunnableSequence,
+ * RunnableLambda, prompt, ChannelWrite. They say nothing about your system but inflate
+ * the tree threefold.
  *
- * Ми їх не викидаємо — ми їх ЗГОРТАЄМО: дітей переприв'язуємо до найближчого
- * змістовного предка. Викидання зробило б сиротами спани LLM, які лежать
- * усередині RunnableSequence, і дерево розсипалось би.
+ * We do not drop them — we COLLAPSE them: children are re-parented to the nearest
+ * meaningful ancestor. Dropping would orphan the LLM spans that sit inside
+ * RunnableSequence, and the tree would fall apart.
  */
 import { AGENTS, LEAF_TOOLS } from "./src/agents/index.js";
 import { PHOENIX_ENDPOINT } from "./src/config.js";
@@ -28,7 +28,7 @@ const projects = (await (await fetch(`${PHOENIX_ENDPOINT}/v1/projects`)).json())
   { data: { id: string; name: string }[] };
 const found = projects.data.find((p) => p.name === project);
 if (!found) {
-  console.error(`проєкт «${project}» не знайдено. Є: ${projects.data.map((p) => p.name).join(", ")}`);
+  console.error(`project “${project}” not found. Available: ${projects.data.map((p) => p.name).join(", ")}`);
   process.exit(1);
 }
 
@@ -46,10 +46,10 @@ const latest = [...byTrace.values()].sort(
           - Math.max(...a.map((s) => +new Date(s.start_time))),
 )[0]!;
 
-/** Імена наших спанів мають префікс виду: agent.retriever_agent, tool.calc. */
+/** Our span names carry a kind prefix: agent.retriever_agent, tool.calc. */
 const bare = (name: string): string => name.replace(/^(agent|tool|retriever)\./, "");
 
-/** Змістовний — це виклик моделі, виклик інструмента, наш агент або корінь. */
+/** Meaningful means: a model call, a tool call, one of our agents, or the root. */
 const meaningful = (s: Span): boolean =>
   s.span_kind === "LLM" ||
   s.span_kind === "TOOL" ||
@@ -61,7 +61,7 @@ const meaningful = (s: Span): boolean =>
 
 const byId = new Map(latest.map((s) => [s.context.span_id, s]));
 
-/** Найближчий предок, який лишається у дереві. */
+/** The nearest ancestor that stays in the tree. */
 function keptParent(s: Span): string | null {
   let p = s.parent_id;
   while (p) {
@@ -102,9 +102,9 @@ const roots = (children.get(null) ?? []).sort(
   (a, b) => +new Date(a.start_time) - +new Date(b.start_time),
 );
 console.log(
-  `\nтрейс ${latest[0]!.context.trace_id.slice(0, 12)} · проєкт ${project} · ` +
-  `${latest.length} спанів${showAll ? "" : ` → показано ${kept.length}`}\n`,
+  `\ntrace ${latest[0]!.context.trace_id.slice(0, 12)} · project ${project} · ` +
+  `${latest.length} spans${showAll ? "" : ` → showing ${kept.length}`}\n`,
 );
 for (const r of roots) print(r, 0);
 console.log(`\n  ▣ chain   ◆ agent   ◇ llm   ▪ tool   ▤ retriever` +
-            `${showAll ? "" : "\n  --all — показати всю механіку фреймворку"}\n`);
+            `${showAll ? "" : "\n  --all — show the full framework machinery"}\n`);

@@ -1,12 +1,13 @@
-/** Той самий векторний пошук, але зібраний із готових частин LangChain.
+/** The same vector search, assembled out of ready-made LangChain parts.
  *
- * Реалізує той самий інтерфейс `Retriever`, що й дві попередні — саме заради
- * цього інтерфейс і робився.
+ * It implements the same `Retriever` interface as the other two — which is precisely
+ * what the interface was made for.
  *
- * УВАГА про імпорт: у LangChain JS v1 `MemoryVectorStore` прибрали з основного
- * пакета. Він живе в `@langchain/classic` — пакеті сумісності. У `@langchain/community`
- * з 43 векторсторів немає жодного суто в памʼяті: faiss і hnswlib тягнуть нативні
- * залежності. Приклади з інтернету з `langchain/vectorstores/memory` не запускаються.
+ * A NOTE ON THE IMPORT: in LangChain JS v1, `MemoryVectorStore` was removed from the
+ * main package. It lives in `@langchain/classic`, the compatibility package. Of the 43
+ * vector stores in `@langchain/community`, not one is purely in-memory: faiss and hnswlib
+ * pull in native dependencies. Examples on the web that import
+ * `langchain/vectorstores/memory` do not run.
  */
 import { HuggingFaceTransformersEmbeddings } from "@langchain/community/embeddings/huggingface_transformers";
 import { Document } from "@langchain/core/documents";
@@ -23,8 +24,8 @@ async function ensureStore(): Promise<MemoryVectorStore> {
   const embeddings = new HuggingFaceTransformersEmbeddings({ model: MODEL });
   const docs = CHUNKS.map(
     (c) => new Document({
-      // Той самий префікс, що й у ручній версії: e5 навчена асиметрично,
-      // і LangChain про це не знає — префікс лишається нашою відповідальністю.
+      // The same prefix as in the hand-rolled version: e5 is trained asymmetrically,
+      // and LangChain does not know that — the prefix stays our responsibility.
       pageContent: `passage: ${c.text}`,
       metadata: { chunkId: c.chunkId, doc: c.doc, title: c.title, text: c.text },
     }),
@@ -33,7 +34,7 @@ async function ensureStore(): Promise<MemoryVectorStore> {
   return store;
 }
 
-/** Векторний стор як нативний ретрівер LangChain — для EnsembleRetriever. */
+/** The vector store as a native LangChain retriever — for EnsembleRetriever. */
 export const nativeVector = async (k = 3) => (await ensureStore()).asRetriever({ k });
 
 export const langchainRetriever: Retriever = {

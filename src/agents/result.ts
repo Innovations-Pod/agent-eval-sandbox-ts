@@ -1,4 +1,4 @@
-/** Результат прогону: те, що читають і трейсинг, і евалуатори. */
+/** The result of a run: what both tracing and the evaluators read. */
 
 export interface Step {
   kind: "agent" | "tool" | "retriever";
@@ -35,7 +35,7 @@ export class RunResult {
     this.question = question;
   }
 
-  /** Плаский слід виконання: імена агентів і інструментів у порядку викликів. */
+  /** Flat execution trace: agent and tool names in call order. */
   get trajectory(): string[] {
     return this.steps.map((s) => s.name);
   }

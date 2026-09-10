@@ -1,46 +1,47 @@
-/** Гібридний пошук: зважений RRF.
+/** Hybrid search: weighted RRF.
  *
- * ЧОМУ НЕ `EnsembleRetriever` З БІБЛІОТЕКИ. Він реалізує рівно ту саму формулу
- * (`weight / (rank + c)`), ми його спробували й поміряли — і він тут не працює
- * з двох причин, обидві структурні:
+ * WHY NOT THE LIBRARY'S `EnsembleRetriever`. It implements exactly the same formula
+ * (`weight / (rank + c)`); we tried it and measured it — and it does not work here,
+ * for two reasons, both structural:
  *
- * 1. Зливає документи ЗА `pageContent`. У векторному сторі текст обовʼязково
- *    з префіксом `passage:` (цього вимагає модель e5), у BM25 — без нього.
- *    Для бібліотеки це РІЗНІ документи, тож місця одного й того самого чанка
- *    не додаються, і злиття мовчки не відбувається. Помилки при цьому немає:
- *    метрики виглядають правдоподібно, просто гібрид перестає бути гібридом.
- *    Вирівняти тексти не можна — префікс потрібен саме для якості ембедінгів.
+ * 1. It merges documents BY `pageContent`. In the vector store the text always carries
+ *    the `passage:` prefix (the e5 model requires it); in BM25 it does not. To the
+ *    library these are DIFFERENT documents, so the ranks of one and the same chunk are
+ *    never added and the fusion silently does not happen. There is no error either:
+ *    the metrics look plausible, the hybrid has simply stopped being a hybrid.
+ *    The texts cannot be aligned — the prefix is exactly what the embeddings need.
  *
- * 2. Викидає злитий скор, повертаючи лише впорядковані документи. Нам скор
- *    потрібен для спанів RETRIEVER у Phoenix: без `document.score` не видно,
- *    наскільки впевненим був пошук.
+ * 2. It discards the fused score and returns only ordered documents. We need that score
+ *    for RETRIEVER spans in Phoenix: without `document.score` there is no way to see how
+ *    confident the search was.
  *
- * Виміряно: власна реалізація дає recall 1.00 / MRR 1.00, через
- * `EnsembleRetriever` — 0.90 / 1.00. Тому лишаємо своє, а бібліотечне
- * рішення документуємо тут, щоб наступний не витрачав час на ту саму спробу.
+ * Measured: our own implementation gives recall 1.00 / MRR 1.00, via `EnsembleRetriever`
+ * — 0.90 / 1.00. So we keep ours and document the library option here, so that the next
+ * person does not spend time on the same attempt.
  */
 import { CHUNKS, type Hit, type Retriever } from "./corpus.js";
 import { bm25Retriever } from "./bm25.js";
 import { langchainRetriever } from "./langchain.js";
 
 /**
- * Ваги: наскільки довіряємо кожному методу. Виміряно на `evals/retrievalBench.ts`:
- * рівні ваги дають MRR 0.90, вектор ×2 — 1.00. Наш корпус суто концептуальний,
- * без артикулів і кодів, тому семантика має важити більше.
+ * Weights: how much we trust each method. Measured on `evals/retrievalBench.ts`:
+ * equal weights give MRR 0.90, vector ×2 gives 1.00. Our corpus is purely conceptual,
+ * with no part numbers or codes, so semantics should weigh more.
  *
- * Орієнтири з літератури:
- *   артикули, ідентифікатори, коди → bm25 переважає   (≈ 2 / 1)
- *   концептуальні, перефразування  → вектор переважає (≈ 1 / 2)  ← наш випадок
- *   змішані                        → рівні + реранкер згори
+ * Rules of thumb from the literature:
+ *   part numbers, identifiers, codes → bm25 wins   (≈ 2 / 1)
+ *   conceptual, paraphrase-heavy     → vector wins (≈ 1 / 2)  ← our case
+ *   mixed                            → equal + a reranker on top
  *
- * Оптимум залежить від корпусу й ДРЕЙФУЄ — переміряти після змін бази знань.
+ * The optimum depends on the corpus and DRIFTS — re-measure after knowledge-base changes.
  */
 export const WEIGHTS = { bm25: 1, vector: 2 };
 
 /**
- * `c` (у нас історично `k`) — не «важливість методу», а «наскільки перше місце
- * кращe за друге». При 60 розрив між #1 і #2 усього 2%, тож вирішує сам факт
- * присутності в обох списках. Дефолт `EnsembleRetriever`, Elasticsearch і Qdrant.
+ * `c` (historically `k` here) is not “how important the method is” but “how much better
+ * first place is than second”. At 60 the gap between #1 and #2 is only 2%, so what decides
+ * is the mere fact of appearing in both lists. The default in `EnsembleRetriever`,
+ * Elasticsearch and Qdrant.
  */
 const C = 60;
 
@@ -51,7 +52,7 @@ export interface Fusion {
   score: number;
 }
 
-/** Місця в обох списках і злитий скор — для телеметрії та візуалізації. */
+/** Ranks in both lists plus the fused score — for telemetry and visualisation. */
 export async function fuse(query: string): Promise<Fusion[]> {
   const [bm, vec] = await Promise.all([
     bm25Retriever.search(query, CHUNKS.length),

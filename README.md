@@ -1,89 +1,113 @@
-# Пісочниця для тестування мульти-агентних систем — TypeScript
+# Multi-agent system sandbox — TypeScript
 
-Порт `~/agent-eval-sandbox` (Python) один-в-один. Та сама архітектура, той самий
-датасет, ті самі метрики — щоб можна було порівняти дві мови на тій самій задачі.
+A small, deliberately readable multi-agent system built to be measured rather than
+demoed: a support desk for a fictional logistics company, wired as a supervisor over
+three workers, with evals, tracing and cost accounting attached to every run.
 
-## Швидкий старт
+Ported one-to-one from `~/agent-eval-sandbox` (Python) — same architecture, same
+dataset, same metrics — so the two languages can be compared on the same task.
+
+## Quick start
 
 ```bash
-npm install --legacy-peer-deps   # див. «Відомі шорсткості»
-npm run baseline                 # прогін без ключа й без витрат
+npm install --legacy-peer-deps          # see "Known rough edges"
+npm run chat -- "How much does domestic delivery of an 8 kg parcel cost?"
+npm run trace                           # readable view of the latest trace
+npm run run                             # the full experiment: real Claude + LLM judges
 npm run report -- <experimentId>
-npm run chat -- "Скільки коштує міжміська доставка 8 кг?"
-npm run run                      # справжній Claude + LLM-судді
 ```
 
-Phoenix має бути піднятий — він спільний з Python-версією:
+Phoenix must be up — it is shared with the Python version:
 `cd ~/agent-eval-sandbox && make up`.
 
-## Структура — та сама, що в Python
+Every run costs money: `ANTHROPIC_API_KEY` is required and there is no free mode.
+
+## Structure
 
 ```
 src/
-  agents/     prompts.ts · registry.ts (ТОПОЛОГІЯ) · runtime.ts · result.ts
-  tools/      knowledge.ts · arithmetic.ts · operations.ts · schemas.ts (Zod)
-  llm/        types.ts · anthropic.ts · fake.ts · index.ts
-  kb/         база знань (копія)
-evals/        dataset.ts · evaluators.ts · runExperiment.ts · report.ts
-chat.ts
+  agents/       the registry — and the only place the TOPOLOGY is written down
+    supervisor/ index.ts (spec) · prompt.ts
+    retriever/  + tools/  search-docs · bm25 · hybrid · fusion · corpus · langchain
+    calc/       + tools/  calc.ts
+    api/        + tools/  get-shipment · get-customer · data.ts
+    index.ts    registry · registry.ts  integrity rules · types.ts
+  runtime/      the only folder that knows about LangGraph
+    index.ts    asTool + assembling the agent tree
+    run.ts      facade: question → RunResult
+    recorder.ts · spans.ts · tools.ts
+  kb/           the knowledge base the retriever searches
+  config.ts     models, prices, Phoenix endpoint
+evals/          dataset.ts · evaluators.ts · runExperiment.ts · report.ts
+                retrieval-truth.ts · retrievalBench.ts
+chat.ts · trace.ts · datasets.ts · promote.ts
 ```
 
-## Перевірка вірності порту
+An agent is a system prompt plus a `canCall` list. The topology is the content of
+those lists, not the shape of the code: turning the supervisor into a mesh means
+adding names to `canCall`, and nothing in `src/runtime/` changes.
 
-Детермінована заглушка `FakeLLM` дає той самий результат в обох мовах:
+## Metrics
 
-```
-траєкторії ідентичні: 12/12
-скори евалів:         збіглися повністю (keyword_check 0.500, tool_selection 0.958,
-                      no_loops 1.000, steps_count 3.000)
-```
+Deterministic, computed in code: `trajectory_match`, `tool_selection_f1`, `no_loops`,
+`keyword_check`, `cost_usd`, `latency_s`, `steps_count`.
 
-Тексти відповідей відрізняються в 9 із 12 кейсів — це **не** різниця в поведінці:
-`json.dumps` у Python ставить пробіли після двокрапки, `JSON.stringify` — ні,
-плюс тут `chunkId` замість `chunk_id` за конвенцією TS. На жодну метрику не впливає.
+LLM-as-judge (`claude-opus-5`): `correctness_judge`, `groundedness_judge`, `safety_judge`.
 
-## Де TypeScript вийшов кращим
+The rule is simple: whatever can be checked in code, check in code. A model judge
+costs money, drifts, and needs calibrating itself. Efficiency metrics (`cost_usd`,
+`latency_s`, `steps_count`) sit next to the quality ones on purpose — a prompt
+"improvement" that doubles the bill without changing an answer is invisible otherwise.
 
-**Zod як одне джерело правди.** У Python схема інструмента, валідація аргументів
-і тип — три різні місця (а валідації взагалі немає). Тут один об'єкт дає все:
+## Where TypeScript came out better
+
+**Zod as a single source of truth.** In Python, a tool's schema, its argument
+validation and its type are three separate places (and validation is absent
+altogether). Here one object gives all three:
 
 ```ts
-export const SearchDocsInput = z.object({
-  query: z.string().describe("Пошуковий запит"),
+const Input = z.object({
+  query: z.string().describe("Search query"),
 });
-// → JSON-схема для моделі  (toJsonSchema)
-// → рантайм-валідація      (SearchDocsInput.parse)
-// → статичний тип          (z.infer)
+// → JSON schema for the model  (toJsonSchema)
+// → runtime validation         (Input.parse)
+// → static type                (z.infer)
 ```
 
-**Типи справді перевіряються.** `npm run typecheck` ловить те, що в Python
-проходить мовчки: `noUncheckedIndexedAccess` змусив явно обробити кожен доступ
-за індексом, і це знайшло два місця, де Python-версія просто впала б у рантаймі.
+**Types are actually checked.** `npm run typecheck` catches what passes silently in
+Python: `noUncheckedIndexedAccess` forced every indexed access to be handled
+explicitly, and that found two places where the Python version would simply have
+crashed at runtime.
 
-## Де довелося докласти зусиль
+## Where it took effort
 
-**Калькулятор.** У Python `ast.parse` дає безпечний розбір виразу з коробки.
-У JS такого немає, а `eval()` пустив би довільний код із відповіді моделі —
-тому в `src/tools/arithmetic.ts` написано власний рекурсивний спуск (~70 рядків
-проти 15 у Python).
+**The calculator.** In Python, `ast.parse` gives you safe expression parsing out of
+the box. JS has nothing of the sort, and `eval()` would run arbitrary code from the
+model's reply — so `src/agents/calc/tools/calc.ts` carries a hand-written recursive
+descent parser (~70 lines against 15 in Python).
 
-**Читання результатів евалів.** Python-клієнт віддає їх у `get_experiment()`.
-JS-клієнт — ні, тому `report.ts` ходить у REST `/v1/experiments/{id}/json`.
+**Reading eval results.** The Python client returns them from `get_experiment()`.
+The JS client does not, so `report.ts` goes to the REST endpoint
+`/v1/experiments/{id}/json` instead.
 
-**Асинхронність наскрізь.** Кожен метод у ланцюжку став `async`, включно з
-рекурсивним `runAgent`. У Python код лишається синхронним і читається простіше.
+**Spans from callbacks.** LangChain callbacks arrive from different async contexts
+and the parent context does not travel with them, so spans built inside the callbacks
+came out orphaned. `recorder.ts` therefore only collects data, and `spans.ts` builds
+the whole tree afterwards in one synchronous pass.
 
-**`for … else`.** Конструкції-аналога немає, довелося вести окремий прапорець
-`exhausted` — див. коментар у `runtime.ts`.
+**Hybrid search.** The library's `EnsembleRetriever` implements the same weighted RRF
+formula but merges documents by `pageContent` — and the vector store's text carries a
+`passage:` prefix that BM25's does not, so the fusion silently never happens. See the
+comment at the top of `src/agents/retriever/tools/hybrid.ts`.
 
-## Відомі шорсткості
+## Known rough edges
 
-`@arizeai/phoenix-client@7.8.0` тримає застарілий optional peer на
-`@anthropic-ai/sdk@^0.35.0`. Ми цей peer не використовуємо (Anthropic викликаємо
-напряму), тому ставимо з `--legacy-peer-deps`.
+`@arizeai/phoenix-client@7.8.0` keeps a stale optional peer on
+`@anthropic-ai/sdk@^0.35.0`. We do not use that peer (the judge calls Anthropic
+directly), so we install with `--legacy-peer-deps`.
 
-## Що лишилось незробленим навмисно
+## Language
 
-`trajectoryScore` в `evals/evaluators.ts` повертає 0.0 — це відкрите завдання
-з Python-версії (`evals/evaluators.py`, `TODO(human)`). Спершу реалізуй там,
-потім перенеси сюди свою ж політику.
+Code, prompts, knowledge base and dataset are all in English. Earlier revisions were
+in Ukrainian; any measurement taken before the switch describes the Ukrainian-language
+system and is not directly comparable to a run of this revision.

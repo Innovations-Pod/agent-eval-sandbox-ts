@@ -1,6 +1,6 @@
-/** Інструмент пошуку. Ім'я лишається `search_docs` за будь-якої стратегії —
- *  інакше траєкторії в датасеті довелося б переписувати, і порівняти
- *  лексичний пошук із векторним на тих самих кейсах стало б неможливо. */
+/** The search tool. The name stays `search_docs` whatever the strategy — otherwise
+ *  the trajectories in the dataset would have to be rewritten, and comparing lexical
+ *  search against vector search on the same cases would become impossible. */
 import { z } from "zod";
 
 import type { RetrieverTool } from "../../types.js";
@@ -11,22 +11,22 @@ import { hybridRetriever } from "./hybrid.js";
 import { langchainRetriever } from "./langchain.js";
 
 export const RETRIEVERS: Record<string, Retriever> = {
-  bm25: bm25Retriever,            // лексичний, із коробки
-  vector: langchainRetriever,     // векторний, із коробки
-  hybrid: hybridRetriever,        // злиття за МІСЦЯМИ (RRF), як у Elasticsearch/Qdrant
-  relative: relativeRetriever,    // злиття за СКОРАМИ, як у Weaviate з v1.24
+  bm25: bm25Retriever,            // lexical, off the shelf
+  vector: langchainRetriever,     // vector, off the shelf
+  hybrid: hybridRetriever,        // fusion by RANK (RRF), as in Elasticsearch/Qdrant
+  relative: relativeRetriever,    // fusion by SCORE, as in Weaviate since v1.24
 };
 
-/** Стратегія береться з середовища, щоб той самий датасет прогнати обома. */
+/** The strategy comes from the environment, so the same dataset can be run through both. */
 export const activeRetriever = (): Retriever =>
   RETRIEVERS[process.env.RETRIEVER ?? "bm25"] ?? bm25Retriever;
 
-const Input = z.object({ query: z.string().describe("Пошуковий запит") });
+const Input = z.object({ query: z.string().describe("Search query") });
 
 export const searchDocsTool: RetrieverTool = {
   kind: "retriever",
   name: "search_docs",
-  description: "Пошук по внутрішній базі знань. Повертає найрелевантніші фрагменти.",
+  description: "Search the internal knowledge base. Returns the most relevant passages.",
   input: Input,
   run: async (a) => JSON.stringify(await activeRetriever().search(Input.parse(a).query)),
   query: (a) => Input.parse(a).query,

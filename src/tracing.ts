@@ -1,14 +1,14 @@
-/** Підключення OpenTelemetry-трейсингу до Phoenix (OpenInference-конвенції).
+/** Wiring OpenTelemetry tracing up to Phoenix (OpenInference conventions).
  *
- * Дві речі, яких у Python-версії робити не треба, а тут обов'язково:
+ * Two things the Python version does not need and this one does:
  *
- * 1. `manuallyInstrument()` — під ESM автоінструментація не встигає пропатчити
- *    модуль: `import Anthropic` виконується ДО того, як ми реєструємо провайдер.
- *    Тому патчимо модуль явно.
- * 2. `flushTracing()` — BatchSpanProcessor копить спани в буфері. Якщо процес
- *    завершиться раніше за таймер відправки, останні спани (а це якраз кореневі,
- *    бо вони закриваються останніми) не доїдуть, і трейс лишиться без початку.
- *    У Python це робить atexit-хук; у Node доводиться кликати руками.
+ * 1. `manuallyInstrument()` — under ESM, auto-instrumentation does not get to patch
+ *    the module in time: `import Anthropic` runs BEFORE we register the provider,
+ *    so we patch the module explicitly.
+ * 2. `flushTracing()` — BatchSpanProcessor buffers spans. If the process exits before
+ *    the send timer fires, the last spans (which are precisely the root ones, since
+ *    they close last) never arrive and the trace is left without its beginning.
+ *    In Python an atexit hook does this; in Node it has to be called by hand.
  */
 import { register } from "@arizeai/phoenix-otel";
 import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
@@ -22,13 +22,13 @@ let provider: NodeTracerProvider | null = null;
 export function initTracing(projectName: string = PROJECT_NAME): void {
   if (provider) return;
 
-  // Без менеджера контексту `context.active()` завжди порожній, і всі спани
-  // стають коренями — дерева не буде. register() його не ставить.
+  // Without a context manager `context.active()` is always empty and every span
+  // becomes a root — there is no tree. register() does not install one.
   otelContext.setGlobalContextManager(new AsyncLocalStorageContextManager().enable());
 
-  // Автоінструментація вимкнена свідомо — і LangChain, і Anthropic.
-  // Спани пише RunRecorder із колбеків: рівно ті, що описують нашу систему,
-  // з правильними видами AGENT / RETRIEVER / TOOL / LLM. Див. runtime/recorder.ts.
+  // Auto-instrumentation is off on purpose, for both LangChain and Anthropic.
+  // Spans are written by RunRecorder from callbacks: exactly the ones that describe
+  // our system, with the right AGENT / RETRIEVER / TOOL / LLM kinds. See runtime/recorder.ts.
   provider = register({
     projectName,
     url: `${PHOENIX_ENDPOINT}/v1/traces`,
@@ -37,7 +37,7 @@ export function initTracing(projectName: string = PROJECT_NAME): void {
   });
 }
 
-/** Дочекатися відправки всіх спанів. Кликати перед виходом із процесу. */
+/** Wait for every span to be sent. Call before the process exits. */
 export async function flushTracing(): Promise<void> {
   if (!provider) return;
   await provider.forceFlush();

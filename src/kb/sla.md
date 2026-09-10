@@ -1,11 +1,11 @@
-# SLA та терміни доставки
+# SLA and delivery windows
 
-| Напрямок | Термін | Компенсація за прострочення |
+| Direction | Window | Compensation for a missed window |
 |---|---|---|
-| Місто | 1 робочий день | 100% вартості доставки |
-| Міжміський | 2 робочих дні | 50% вартості доставки |
-| Міжнародний (ЄС) | 5–7 робочих днів | 30% вартості доставки |
+| City | 1 business day | 100% of the delivery charge |
+| Domestic | 2 business days | 50% of the delivery charge |
+| International (EU) | 5–7 business days | 30% of the delivery charge |
 
-Компенсація нараховується автоматично лише після підтвердження факту прострочення
-оператором. Форс-мажор (погодні умови, повітряна тривога, митні затримки) виводить
-відправлення з-під SLA — компенсація в такому разі не нараховується.
+Compensation is credited automatically only after an operator confirms that the
+window was missed. Force majeure (weather, air-raid alerts, customs delays) takes
+a shipment out of the SLA — no compensation is credited in that case.

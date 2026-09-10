@@ -1,16 +1,16 @@
-/** Виконання агентів. Реалізація — `createAgent` із пакета `langchain`.
+/** Running agents. The implementation is `createAgent` from the `langchain` package.
  *
- * Раніше тут був `createReactAgent` із `@langchain/langgraph/prebuilt` — його
- * задепрекейтили й перенесли в `langchain` під новою назвою; заразом
- * перейменували два параметри: `llm` → `model`, `prompt` → `systemPrompt`.
+ * This used to be `createReactAgent` from `@langchain/langgraph/prebuilt` — it was
+ * deprecated and moved into `langchain` under a new name; two parameters were renamed
+ * along the way: `llm` → `model`, `prompt` → `systemPrompt`.
  *
- * Тека названа за роллю, а не за фреймворком: коли рантайм колись зміниться
- * знову, назва лишиться правдою. Раніше вона звалася `graph/` — за внутрішньою
- * абстракцією LangGraph, до якої ми навіть не торкаємось: власного StateGraph
- * не будуємо, вузлів і ребер не додаємо.
+ * The folder is named after the role rather than the framework: when the runtime changes
+ * again one day, the name will still be true. It used to be called `graph/`, after the
+ * internal LangGraph abstraction we do not even touch: we build no StateGraph of our own
+ * and add neither nodes nor edges.
  *
- * Топологія береться з реєстру `src/agents/` — промпти, права й інструменти
- * не дублюються.
+ * The topology comes from the `src/agents/` registry — prompts, permissions and tools
+ * are not duplicated.
  */
 import { ChatAnthropic } from "@langchain/anthropic";
 import { HumanMessage } from "@langchain/core/messages";
@@ -29,53 +29,53 @@ const model = (): ChatAnthropic =>
 
 type Agent = ReturnType<typeof createAgent>;
 
-/** Суб-агент, загорнутий в інструмент для батька — той самий Composite,
- *  тільки цикл усередині крутить LangGraph, а не ми.
+/** A sub-agent wrapped into a tool for its parent — the same Composite, except the
+ *  loop inside is turned by LangGraph rather than by us.
  *
- *  Готовий `createSupervisor` з `@langchain/langgraph-supervisor` робить це саме,
- *  але через handoff: керування ПЕРЕДАЄТЬСЯ суб-агенту, а інструменти звуться
- *  `transfer_to_*`. Перевірено — траєкторія стає `transfer_to_retriever_agent → …`
- *  замість імен наших агентів, і весь датасет із `expectedTrajectory` доводиться
- *  переписувати. Плюс три милиці: каст типів, ручне проставляння `name`,
- *  і несумісність з `createAgent` з langchain v1.
+ *  The ready-made `createSupervisor` from `@langchain/langgraph-supervisor` does exactly
+ *  this, but through handoff: control is HANDED OVER to the sub-agent and the tools are
+ *  named `transfer_to_*`. We checked — the trajectory becomes
+ *  `transfer_to_retriever_agent → …` instead of our agents' names, and the whole dataset
+ *  with its `expectedTrajectory` has to be rewritten. Plus three crutches: a type cast,
+ *  setting `name` by hand, and incompatibility with `createAgent` from langchain v1.
  *
- *  Вбудований `Runnable.asTool({ name, description, schema })` теж не підходить.
- *  Ідея була гарна — ланцюг `аргумент → messages` ▸ агент ▸ `останнє повідомлення
- *  → текст`, і конфіг тоді прокидається сам. Але `createAgent` з langchain v1
- *  повертає `ReactAgent`, який не є Runnable ні для типів, ні в рантаймі:
- *  `.pipe()` падає з `Expected a Runnable, function or object`.
- *  Тобто в ланцюг його не вбудуєш — лишається виклик `.invoke()` вручну.
+ *  The built-in `Runnable.asTool({ name, description, schema })` does not fit either.
+ *  The idea was good — a chain of `argument → messages` ▸ agent ▸ `last message → text`,
+ *  and then the config is threaded through by itself. But `createAgent` from langchain v1
+ *  returns a `ReactAgent`, which is not a Runnable, neither for the types nor at runtime:
+ *  `.pipe()` fails with `Expected a Runnable, function or object`.
+ *  So it cannot be embedded in a chain — calling `.invoke()` by hand is what is left.
  */
 function asTool(get: () => Agent, spec: AgentSpec) {
-  /** Викликає вкладеного агента й повертає його підсумок текстом.
+  /** Calls the nested agent and returns its summary as text.
    *
-   *  `config` передається обовʼязково: без нього колбеки й трейсинг не доходять
-   *  до суб-агента, і його кроки зникають із траєкторії.
+   *  `config` must be passed through: without it, callbacks and tracing never reach the
+   *  sub-agent and its steps vanish from the trajectory.
    *
-   *  Агент береться через `get()`, а не значенням: топологія може містити цикл
-   *  (A кличе B, B кличе A), і тоді на момент збирання цього інструмента другого
-   *  агента ще не існує. Ліниве розвʼязання знімає питання порядку збирання. */
+   *  The agent is taken via `get()` rather than by value: the topology may contain a cycle
+   *  (A calls B, B calls A), and then at the moment this tool is assembled the second agent
+   *  does not exist yet. Lazy resolution removes the question of assembly order. */
   const run = async (args: Record<string, unknown>, config?: unknown) => {
     const task = String(args[spec.arg] ?? "");
     const { messages } = await get().invoke({ messages: [new HumanMessage(task)] }, config as never);
     return contentText(messages.at(-1)?.content);
   };
 
-  // Тип навмисно широкий: інакше схема звужується до Record<string, string>,
-  // і масив із агентських та звичайних інструментів перестає уніфікуватись.
+  // The type is deliberately wide: otherwise the schema narrows to Record<string, string>
+  // and an array mixing agent tools with plain ones stops unifying.
   const schema: z.ZodObject<z.ZodRawShape> = z.object({
-    [spec.arg]: z.string().describe("Завдання для суб-агента"),
+    [spec.arg]: z.string().describe("Task for the sub-agent"),
   });
 
   return tool(run, { name: spec.name, description: spec.description, schema });
 }
 
-/** Збирає систему з реєстру.
+/** Assembles the system from the registry.
  *
- * Кожен агент отримує рівно те, що записано в його `canCall` — і агентів, і
- * інструменти, у будь-якій комбінації. Раніше тут було зашито два шари: точка
- * входу кличе лише агентів, виконавці лише інструменти. Усе, що не вкладалось
- * у цю форму, зникало мовчки — реєстр таке ім'я пропускав, а збирач викидав.
+ * Each agent gets exactly what its `canCall` says — agents and tools, in any combination.
+ * Two layers used to be hard-wired here: the entry point calls only agents, the workers
+ * only tools. Anything that did not fit that shape disappeared silently — the registry
+ * let the name through and the assembler threw it away.
  */
 export function buildAgentTree(): Agent {
   const llm = model();

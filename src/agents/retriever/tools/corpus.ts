@@ -1,5 +1,5 @@
-/** Корпус: читання документів і чанкінг. Спільне для всіх стратегій пошуку —
- *  міняється спосіб порівняння, а не те, що ми порівнюємо. */
+/** The corpus: reading documents and chunking. Shared by every search strategy —
+ *  what changes is how we compare, not what we compare. */
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,7 +17,7 @@ export interface Hit extends Chunk {
   score: number;
 }
 
-/** Чанкінг по абзацах із збереженням заголовка документа (contextual chunking). */
+/** Paragraph chunking that keeps the document heading (contextual chunking). */
 function loadChunks(): Chunk[] {
   const chunks: Chunk[] = [];
   for (const file of readdirSync(KB_DIR).filter((f) => f.endsWith(".md")).sort()) {
@@ -39,7 +39,7 @@ function loadChunks(): Chunk[] {
 
 export const CHUNKS: Chunk[] = loadChunks();
 
-/** Контракт стратегії пошуку. Лексичний і векторний взаємозамінні. */
+/** The search-strategy contract. Lexical and vector are interchangeable. */
 export interface Retriever {
   readonly name: string;
   search(query: string, k?: number): Promise<Hit[]>;

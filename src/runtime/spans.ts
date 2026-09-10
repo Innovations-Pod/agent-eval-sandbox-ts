@@ -1,7 +1,7 @@
-/** Побудова спанів із зібраних подій — одним синхронним проходом.
+/** Building spans from the collected events — in one synchronous pass.
  *
- * Чому не в колбеках: див. коментар у recorder.ts. Тут ми володіємо і порядком,
- * і батьківством, і часовими мітками, тож дерево виходить рівно таким, як треба.
+ * Why not in the callbacks: see the comment in recorder.ts. Here we own the ordering,
+ * the parentage and the timestamps, so the tree comes out exactly as it should.
  */
 import {
   OpenInferenceSpanKind,
@@ -58,7 +58,7 @@ export function emitSpans(events: Event[], summary: RunSummary, startedAt: numbe
   const ctxOf = new Map<string | undefined, Context>();
   ctxOf.set(undefined, trace.setSpan(otelContext.active(), rootSpan));
 
-  // Події вже в порядку відкриття, тож батько завжди створений раніше за дитину.
+  // Events are already in opening order, so a parent is always created before its child.
   for (const ev of events) {
     const parentCtx = ctxOf.get(ev.parent) ?? ctxOf.get(undefined)!;
     const name = ev.kind === "llm" ? "llm.chat" : `${PREFIX[ev.kind]}.${ev.name}`;
@@ -73,13 +73,13 @@ export function emitSpans(events: Event[], summary: RunSummary, startedAt: numbe
       span.setAttribute(
         SemanticConventions.LLM_TOKEN_COUNT_TOTAL, ev.inputTokens + ev.outputTokens,
       );
-      // Без назви моделі Phoenix не знає, за яким прайсом рахувати — і показує
-      // Total Cost = 0 навіть тоді, коли токени пораховані правильно.
+      // Without the model name Phoenix does not know which price list to use — and shows
+      // Total Cost = 0 even when the tokens were counted correctly.
       if (ev.model) span.setAttribute(SemanticConventions.LLM_MODEL_NAME, ev.model);
       span.setAttribute(SemanticConventions.LLM_PROVIDER, "anthropic");
       span.setAttribute(SemanticConventions.LLM_SYSTEM, "anthropic");
-      // Структуровані повідомлення — Phoenix малює їх як діалог, а не як
-      // один довгий рядок. Ключі пласкі, з індексом: llm.input_messages.0.…
+      // Structured messages — Phoenix renders them as a conversation rather than as one
+      // long string. The keys are flat and indexed: llm.input_messages.0.…
       setMessages(span, SemanticConventions.LLM_INPUT_MESSAGES, ev.inputMessages ?? []);
       setMessages(span, SemanticConventions.LLM_OUTPUT_MESSAGES,
                   ev.outputMessage ? [ev.outputMessage] : []);

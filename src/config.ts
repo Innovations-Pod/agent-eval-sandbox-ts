@@ -1,4 +1,4 @@
-/** Конфіг пісочниці: моделі, ціни, ендпоінт Phoenix. */
+/** Sandbox config: models, prices, Phoenix endpoint. */
 import "dotenv/config";
 
 export const AGENT_MODEL = process.env.AGENT_MODEL ?? "claude-sonnet-5";
@@ -7,7 +7,7 @@ export const PHOENIX_ENDPOINT =
   process.env.PHOENIX_COLLECTOR_ENDPOINT ?? "http://localhost:6006";
 export const PROJECT_NAME = process.env.PHOENIX_PROJECT_NAME ?? "mas-sandbox-ts";
 
-/** Ціни Claude API, USD за 1M токенів [input, output] — станом на 2026-06. */
+/** Claude API prices, USD per 1M tokens [input, output] — as of 2026-06. */
 const PRICES: Record<string, [number, number]> = {
   "claude-opus-5": [5.0, 25.0],
   "claude-sonnet-5": [2.0, 10.0],

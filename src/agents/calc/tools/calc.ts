@@ -1,5 +1,5 @@
-/** Калькулятор. У JS немає безпечного вбудованого парсера виразів, а eval()
- *  виконав би довільний код із відповіді моделі — тому власний рекурсивний спуск. */
+/** Calculator. JS has no safe built-in expression parser, and eval() would run
+ *  arbitrary code from the model's reply — hence a hand-written recursive descent. */
 import { z } from "zod";
 
 import type { PlainTool } from "../../types.js";
@@ -16,7 +16,7 @@ function tokenize(src: string): Token[] {
       let j = i;
       while (j < src.length && /[\d.]/.test(src[j]!)) j++;
       const value = Number(src.slice(i, j));
-      if (Number.isNaN(value)) throw new Error(`не число: ${src.slice(i, j)}`);
+      if (Number.isNaN(value)) throw new Error(`not a number: ${src.slice(i, j)}`);
       tokens.push({ kind: "num", value });
       i = j;
       continue;
@@ -27,12 +27,12 @@ function tokenize(src: string): Token[] {
       i++;
       continue;
     }
-    throw new Error(`недозволений символ: ${ch}`);
+    throw new Error(`disallowed character: ${ch}`);
   }
   return tokens;
 }
 
-/** Граматика: expr → term (('+'|'-') term)* ; term → unary (('*'|'/') unary)* ; ... */
+/** Grammar: expr → term (('+'|'-') term)* ; term → unary (('*'|'/') unary)* ; ... */
 function parse(tokens: Token[]): number {
   let pos = 0;
   const peek = (): Token | undefined => tokens[pos];
@@ -73,36 +73,36 @@ function parse(tokens: Token[]): number {
     if (t?.kind === "num") { pos++; return t.value; }
     if (eat("(")) {
       const value = expr();
-      if (!eat(")")) throw new Error("немає закритої дужки");
+      if (!eat(")")) throw new Error("missing closing parenthesis");
       return value;
     }
-    throw new Error("очікувалось число або дужка");
+    throw new Error("expected a number or a parenthesis");
   }
 
   const value = expr();
-  if (pos !== tokens.length) throw new Error("зайві символи у виразі");
+  if (pos !== tokens.length) throw new Error("trailing characters in the expression");
   return value;
 }
 
-/** Безпечний калькулятор для арифметики — власний парсер, ніякого eval. */
+/** A safe calculator for arithmetic — our own parser, no eval. */
 export function calc(expression: string): string {
   try {
     const value = parse(tokenize(expression.replace(/,/g, ".")));
-    if (!Number.isFinite(value)) throw new Error("результат не є скінченним числом");
+    if (!Number.isFinite(value)) throw new Error("the result is not a finite number");
     return `${expression} = ${Math.round(value * 100) / 100}`;
   } catch (err) {
-    return `ПОМИЛКА: ${err instanceof Error ? err.message : String(err)}`;
+    return `ERROR: ${err instanceof Error ? err.message : String(err)}`;
   }
 }
 
 const Input = z.object({
-  expression: z.string().describe("Арифметичний вираз, напр. '95 + 3*12'"),
+  expression: z.string().describe("Arithmetic expression, e.g. '95 + 3*12'"),
 });
 
 export const calcTool: PlainTool = {
   kind: "tool",
   name: "calc",
-  description: "Порахувати арифметичний вираз, напр. '95 + 3*12'.",
+  description: "Evaluate an arithmetic expression, e.g. '95 + 3*12'.",
   input: Input,
   run: (a) => calc(Input.parse(a).expression),
 };

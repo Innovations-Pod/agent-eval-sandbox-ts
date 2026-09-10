@@ -1,7 +1,7 @@
-/** Реєстр агентів — і єдине місце, де записана ТОПОЛОГІЯ.
+/** The agent registry — and the only place the TOPOLOGY is written down.
  *
- * Додати агента: створити теку за зразком сусідніх і дописати сюди два рядки.
- * Нічого в `src/runtime/` при цьому не змінюється.
+ * To add an agent: create a folder modelled on its neighbours and add two lines here.
+ * Nothing in `src/runtime/` changes.
  */
 import type { AgentSpec, LeafTool } from "./types.js";
 import { byName, validateRegistry } from "./registry.js";
@@ -10,14 +10,14 @@ import { calcAgent, calcTools } from "./calc/index.js";
 import { retrieverAgent, retrieverTools } from "./retriever/index.js";
 import { supervisorAgent } from "./supervisor/index.js";
 
-export const AGENTS: Record<string, AgentSpec> = byName("агента", [
+export const AGENTS: Record<string, AgentSpec> = byName("agent", [
   supervisorAgent,
   retrieverAgent,
   calcAgent,
   apiAgent,
 ]);
 
-export const LEAF_TOOLS: Record<string, LeafTool> = byName("інструмент", [
+export const LEAF_TOOLS: Record<string, LeafTool> = byName("tool", [
   ...retrieverTools,
   ...calcTools,
   ...apiTools,
@@ -25,13 +25,13 @@ export const LEAF_TOOLS: Record<string, LeafTool> = byName("інструмент
 
 export const ENTRY_POINT = "supervisor";
 
-// Виконується на імпорті модуля — тобто до першого запиту до моделі.
+// Runs on module import — that is, before the first request to the model.
 validateRegistry(AGENTS, LEAF_TOOLS);
 
 export * from "./types.js";
 export { RunResult, type RunOutput, type Step } from "./result.js";
 
-/** Граф зв'язків лише між агентами — без листків-інструментів. */
+/** The graph of links between agents only — with no tool leaves. */
 export function topology(): Record<string, string[]> {
   return Object.fromEntries(
     Object.entries(AGENTS).map(([name, spec]) => [name, spec.canCall.filter((t) => t in AGENTS)]),

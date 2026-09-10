@@ -1,9 +1,9 @@
-/** Текстовий звіт по експерименту: матриця кейс × метрика.
+/** A text report for an experiment: a case × metric matrix.
  *
- * Відмінність від Python-версії: там `client.experiments.get_experiment()`
- * повертає і прогони, і результати евалів. JS-клієнт результатів евалів не
- * віддає, тому беремо їх REST-ендпоінтом /v1/experiments/{id}/json —
- * там усе лежить у полі `annotations`.
+ * The difference from the Python version: there, `client.experiments.get_experiment()`
+ * returns both the runs and the eval results. The JS client does not hand back eval
+ * results, so we fetch them from the REST endpoint /v1/experiments/{id}/json —
+ * everything sits in the `annotations` field there.
  */
 import { createClient } from "@arizeai/phoenix-client";
 
@@ -17,19 +17,19 @@ const BINARY = new Set(["trajectory_match", "keyword_check", "no_loops", "tool_s
 
 const experimentId = process.argv[2];
 if (!experimentId) {
-  console.error("вжиток: npm run report -- <experimentId>");
+  console.error("usage: npm run report -- <experimentId>");
   process.exit(1);
 }
 
 const client = createClient({ options: { baseUrl: PHOENIX_ENDPOINT } });
 const res = await fetch(`${PHOENIX_ENDPOINT}/v1/experiments/${experimentId}/json`);
 if (!res.ok) {
-  console.error(`Phoenix відповів ${res.status}: перевір experimentId`);
+  console.error(`Phoenix answered ${res.status}: check the experimentId`);
   process.exit(1);
 }
 const rows = (await res.json()) as Row[];
 
-// Підписи кейсів беремо з датасету — у JSON-експорті лежить лише example_id.
+// Case labels come from the dataset — the JSON export only carries example_id.
 const { data: examplesResp } = await client.GET("/v1/experiments/{experiment_id}", {
   params: { path: { experiment_id: experimentId } },
 });
@@ -56,7 +56,7 @@ const cases = [...scores.keys()].sort();
 const width = Math.max(...cases.map((c) => c.length)) + 2;
 const pad = (s: string, n: number) => s.padStart(n);
 
-const header = "кейс".padEnd(width) + metrics.map((m) => pad(m.slice(0, 14), 16)).join("");
+const header = "case".padEnd(width) + metrics.map((m) => pad(m.slice(0, 14), 16)).join("");
 console.log(header);
 console.log("-".repeat(header.length));
 for (const c of cases) {
@@ -68,7 +68,7 @@ for (const c of cases) {
   console.log(line);
 }
 console.log("-".repeat(header.length));
-let avg = "СЕРЕДНЄ".padEnd(width);
+let avg = "AVERAGE".padEnd(width);
 for (const m of metrics) {
   const vals = cases.map((c) => scores.get(c)!.get(m)).filter((v): v is number => v != null);
   avg += pad(vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(3) : "—", 16);

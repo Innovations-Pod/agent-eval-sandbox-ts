@@ -1,40 +1,40 @@
-/** Складання реєстру: індексація за іменем і перевірки цілісності.
+/** Assembling the registry: indexing by name and integrity checks.
  *
- * Усе тут чисте й параметризоване — навмисно. Реєстр у `index.ts` лише
- * оголошує, з чого складається система; правила, яким вона мусить
- * відповідати, живуть окремо і перевіряються без справжніх агентів.
+ * Everything here is pure and parameterised, deliberately. The registry in
+ * `index.ts` only declares what the system is made of; the rules it must satisfy
+ * live separately and are tested without a single real agent.
  */
 import type { AgentSpec, LeafTool } from "./types.js";
 
-/** Розкладає список за іменем. Падає на дублікаті: `Object.fromEntries`
- *  мовчки лишив би останній, а перший зник би без жодного сліду. */
+/** Lays a list out by name. Throws on a duplicate: `Object.fromEntries` would
+ *  silently keep the last one and the first would vanish without a trace. */
 export function byName<T extends { name: string }>(kind: string, items: T[]): Record<string, T> {
   const seen = new Set<string>();
   for (const { name } of items) {
-    if (seen.has(name)) throw new Error(`${kind} оголошено двічі: ${name}`);
+    if (seen.has(name)) throw new Error(`${kind} declared twice: ${name}`);
     seen.add(name);
   }
   return Object.fromEntries(items.map((i) => [i.name, i]));
 }
 
-/** Дві умови, без яких система зламається не на старті, а посеред прогону. */
+/** Two conditions without which the system breaks mid-run rather than at startup. */
 export function validateRegistry(
   agents: Record<string, AgentSpec>,
   tools: Record<string, LeafTool>,
 ): void {
-  // Простір імен спільний і пошук іде спершу серед агентів, тож інструмент
-  // з іменем агента мовчки перестав би викликатись.
+  // The namespace is shared and lookup checks agents first, so a tool named
+  // like an agent would silently stop being called.
   const shadowed = Object.keys(tools).filter((name) => name in agents);
   if (shadowed.length > 0) {
-    throw new Error(`ім'я інструмента вже зайняте агентом: ${shadowed.join(", ")}`);
+    throw new Error(`tool name already taken by an agent: ${shadowed.join(", ")}`);
   }
 
-  // Друкарська помилка в canCall інакше спливе аж тоді, коли модель
-  // попросить неіснуючий інструмент — тобто вже за гроші.
+  // A typo in canCall would otherwise surface only when the model asks for a
+  // tool that is not there — which is to say, once you are already paying.
   for (const spec of Object.values(agents)) {
     for (const name of spec.canCall) {
       if (!(name in agents) && !(name in tools)) {
-        throw new Error(`агент ${spec.name} посилається на неіснуюче ім'я: ${name}`);
+        throw new Error(`agent ${spec.name} points at a name that does not exist: ${name}`);
       }
     }
   }

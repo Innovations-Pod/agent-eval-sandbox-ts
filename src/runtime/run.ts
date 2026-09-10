@@ -1,5 +1,5 @@
-/** Фасад над графом: приймає питання, повертає той самий `RunResult`, що й
- *  раніше. Форма результату лишилась незмінною, тому `evals/` не переписувались. */
+/** A facade over the graph: takes a question, returns the same `RunResult` as
+ *  before. The shape of the result never changed, so `evals/` was not rewritten. */
 import { HumanMessage } from "@langchain/core/messages";
 
 import { RunResult } from "../agents/index.js";
@@ -22,8 +22,8 @@ export class MultiAgentSystem {
         { messages: [new HumanMessage(question)] },
         { callbacks: [recorder], recursionLimit: 25 },
       );
-      // Через `contentText`, а не `JSON.stringify`: коли модель вмикає роздуми,
-      // останнє повідомлення — це масив блоків, і відповідь тонула в їхньому JSON.
+      // Via `contentText`, not `JSON.stringify`: when the model turns on thinking,
+      // the last message is an array of blocks and the answer drowned in their JSON.
       result.answer = contentText(output.messages.at(-1)?.content);
     } catch (err) {
       result.answer = "";

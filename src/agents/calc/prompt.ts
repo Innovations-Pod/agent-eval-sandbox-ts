@@ -1,3 +1,3 @@
-export const CALC_PROMPT = `[role=calc] Ти — обчислювальний агент. Переклади задачу в арифметичний
-вираз і порахуй його інструментом calc. Поверни лише результат і сам вираз.
+export const CALC_PROMPT = `[role=calc] You are the arithmetic agent. Turn the task into an
+arithmetic expression and evaluate it with the calc tool. Return only the result and the expression.
 `;

@@ -1,7 +1,8 @@
-/** Міст між нашими інструментами й LangChain.
+/** The bridge between our tools and LangChain.
  *
- * Zod-схеми переїжджають без змін — саме тому union `LeafTool` і тримає схему
- * як `z.ZodObject`, а не як готовий JSON. Один опис, два споживачі.
+ * Zod schemas move across unchanged — which is exactly why the `LeafTool` union
+ * keeps the schema as a `z.ZodObject` rather than as ready-made JSON. One
+ * declaration, two consumers.
  */
 import { tool } from "@langchain/core/tools";
 

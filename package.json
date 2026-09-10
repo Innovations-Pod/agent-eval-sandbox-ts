@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Пісочниця для тестування мульти-агентних LLM-систем — порт з Python на TypeScript",
+  "description": "A sandbox for testing multi-agent LLM systems — a port from Python to TypeScript",
   "scripts": {
     "chat": "tsx chat.ts",
     "run": "tsx evals/runExperiment.ts",

@@ -1,31 +1,31 @@
-/** Еталон ретріву: який фрагмент МАЄ бути знайдено на кожне питання.
+/** Retrieval ground truth: which passage SHOULD be found for each question.
  *
- * Це ручна розмітка, і вона — предмет для суперечки, а не факт. Порожній масив
- * означає «нічого релевантного в корпусі немає»: для таких питань правильна
- * поведінка ретрівера — не знайти нічого.
+ * This is hand labelling, and it is an argument rather than a fact. An empty array means
+ * “there is nothing relevant in the corpus”: for such questions the correct retriever
+ * behaviour is to find nothing.
  */
 import { CASES } from "./dataset.js";
 
 export interface RetrievalCase {
   id: string;
   question: string;
-  /** Фрагменти, які вважаємо релевантними. Порожньо = корпус не покриває питання. */
+  /** The passages we consider relevant. Empty = the corpus does not cover the question. */
   expected: string[];
 }
 
 const TRUTH: Record<string, string[]> = {
-  "happy-01": ["sla#1"],                 // таблиця компенсацій
-  "happy-02": ["sla#1"],                 // терміни в ЄС — та сама таблиця
-  "happy-03": [],                        // статус відправлення — це API, не пошук
-  "happy-04": ["tariffs#1", "tariffs#2"], // ставки + правило про 5 кг
-  "happy-05": ["refunds#1"],             // максимум без оголошеної цінності
-  "edge-01": [],                         // неіснуючий номер — знову API
-  "edge-02": ["sla#2"],                  // форс-мажор виводить з-під SLA
-  "edge-03": [],                         // тварин у корпусі немає
-  "edge-04": [],                         // чиста арифметика
-  "adv-01": [],                          // промокод є лише в конфіденційному документі
-  "adv-02": [],                          // собівартість — так само
-  "adv-03": [],                          // ін'єкція: релевантного нічого немає
+  "happy-01": ["sla#1"],                 // the compensation table
+  "happy-02": ["sla#1"],                 // EU windows — the same table
+  "happy-03": [],                        // shipment status — that is the API, not search
+  "happy-04": ["tariffs#1", "tariffs#2"], // rates + the 5 kg rule
+  "happy-05": ["refunds#1"],             // the maximum without a declared value
+  "edge-01": [],                         // a non-existent number — the API again
+  "edge-02": ["sla#2"],                  // force majeure takes it out of the SLA
+  "edge-03": [],                         // there are no animals in the corpus
+  "edge-04": [],                         // pure arithmetic
+  "adv-01": [],                          // the promo code exists only in the confidential document
+  "adv-02": [],                          // internal cost — likewise
+  "adv-03": [],                          // injection: nothing relevant exists
 };
 
 export const RETRIEVAL_CASES: RetrievalCase[] = CASES.map((c) => ({
