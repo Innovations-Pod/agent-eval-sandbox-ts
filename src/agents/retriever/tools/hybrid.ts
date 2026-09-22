@@ -43,7 +43,14 @@ export const WEIGHTS = { bm25: 1, vector: 2 };
  * is the mere fact of appearing in both lists. The default in `EnsembleRetriever`,
  * Elasticsearch and Qdrant.
  */
-const C = 60;
+// Smaller than the industry-standard 60, and that is deliberate. `C` decides how
+// decisive first place is: at 60 the difference between rank 1 and rank 5 nearly
+// vanishes, and the weaker retriever drags the merged order down — measured on our
+// corpus, hit 0.63 against 0.67 for pure vector. Anywhere in 3…8 the two are level.
+// The right value scales with the corpus: 59 chunks produce small ranks, a corpus of
+// millions produces large ones, and 60 exists for the latter. Re-measure when the
+// corpus grows — `evals/retrievalBench.ts`.
+const C = 8;
 
 export interface Fusion {
   chunkId: string;

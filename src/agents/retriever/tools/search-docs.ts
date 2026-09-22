@@ -17,9 +17,20 @@ export const RETRIEVERS: Record<string, Retriever> = {
   relative: relativeRetriever,    // fusion by SCORE, as in Weaviate since v1.24
 };
 
-/** The strategy comes from the environment, so the same dataset can be run through both. */
+/** The strategy comes from the environment, so the same dataset can be run through both.
+ *
+ *  The default is `hybrid`, and the honest reason is not that it measured best. On our
+ *  corpus it did not: with 27 covered questions, hybrid (k=8) and pure vector score an
+ *  identical hit 0.67 and differ by one case out of 27 in MRR — below what a set this
+ *  size can resolve at all. Vector is simpler and would do just as well today.
+ *
+ *  Hybrid is chosen for where the corpus is going, not where it is. Lexical search wins
+ *  precisely on exact terms, codes and article numbers — the cases our questions barely
+ *  contain today and a real support corpus is full of. Keeping fusion in place means the
+ *  answer changes with the data rather than with a rewrite. Set RETRIEVER=vector to
+ *  compare at any time. */
 export const activeRetriever = (): Retriever =>
-  RETRIEVERS[process.env.RETRIEVER ?? "bm25"] ?? bm25Retriever;
+  RETRIEVERS[process.env.RETRIEVER ?? "hybrid"] ?? hybridRetriever;
 
 const Input = z.object({ query: z.string().describe("Search query") });
 
