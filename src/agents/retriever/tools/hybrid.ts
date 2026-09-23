@@ -15,18 +15,18 @@
  *    for RETRIEVER spans in Phoenix: without `document.score` there is no way to see how
  *    confident the search was.
  *
- * Measured: our own implementation gives recall 1.00 / MRR 1.00, via `EnsembleRetriever`
- * — 0.90 / 1.00. So we keep ours and document the library option here, so that the next
- * person does not spend time on the same attempt.
+ * So we keep ours and document the library option here, so that the next person does
+ * not spend time on the same attempt.
  */
 import { CHUNKS, type Hit, type Retriever } from "./corpus.js";
 import { bm25Retriever } from "./bm25.js";
 import { langchainRetriever } from "./langchain.js";
 
 /**
- * Weights: how much we trust each method. Measured on `evals/retrievalBench.ts`:
- * equal weights give MRR 0.90, vector ×2 gives 1.00. Our corpus is purely conceptual,
- * with no part numbers or codes, so semantics should weigh more.
+ * Weights: how much we trust each method. Measured by `evals/retrievalNumbers.ts` on the
+ * 27 answerable customer questions: 1:1 gives hit 0.56 / MRR 0.52, 1:2 gives 0.67 / 0.57,
+ * 2:1 gives 0.44 / 0.33. Our corpus is purely conceptual, with no part numbers or codes,
+ * so semantics should weigh more.
  *
  * Rules of thumb from the literature:
  *   part numbers, identifiers, codes → bm25 wins   (≈ 2 / 1)
@@ -49,8 +49,8 @@ export const WEIGHTS = { bm25: 1, vector: 2 };
 // corpus, hit 0.63 against 0.67 for pure vector. Anywhere in 3…8 the two are level.
 // The right value scales with the corpus: 59 chunks produce small ranks, a corpus of
 // millions produces large ones, and 60 exists for the latter. Re-measure when the
-// corpus grows — `evals/retrievalBench.ts`.
-const C = 8;
+// corpus grows — `evals/retrievalNumbers.ts`.
+export const C = 8;
 
 export interface Fusion {
   chunkId: string;
@@ -60,7 +60,11 @@ export interface Fusion {
 }
 
 /** Ranks in both lists plus the fused score — for telemetry and visualisation. */
-export async function fuse(query: string): Promise<Fusion[]> {
+export async function fuse(
+  query: string,
+  constant: number = C,
+  weights: { bm25: number; vector: number } = WEIGHTS,
+): Promise<Fusion[]> {
   const [bm, vec] = await Promise.all([
     bm25Retriever.search(query, CHUNKS.length),
     langchainRetriever.search(query, CHUNKS.length),
@@ -72,7 +76,7 @@ export async function fuse(query: string): Promise<Fusion[]> {
   return CHUNKS.map((c) => {
     const b = rankOf(bm, c.chunkId);
     const v = rankOf(vec, c.chunkId);
-    const score = (b ? WEIGHTS.bm25 / (C + b) : 0) + (v ? WEIGHTS.vector / (C + v) : 0);
+    const score = (b ? weights.bm25 / (constant + b) : 0) + (v ? weights.vector / (constant + v) : 0);
     return { chunkId: c.chunkId, bm25Rank: b, vectorRank: v, score };
   }).sort((a, b) => b.score - a.score);
 }

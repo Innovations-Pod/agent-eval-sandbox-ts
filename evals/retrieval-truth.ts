@@ -65,7 +65,46 @@ const RETRIEVAL_ONLY: RetrievalCase[] = [
   { id: "kb-22", question: "Can we create waybills straight from our own system, and does that cost extra?", expected: ["business#5"] },
 ];
 
-export const RETRIEVAL_CASES: RetrievalCase[] = [
-  ...CASES.map((c) => ({ id: c.id, question: c.question, expected: TRUTH[c.id] ?? [] })),
-  ...RETRIEVAL_ONLY,
-];
+/**
+ * The same 22 questions, rephrased in the documents' own words — the way a benchmark
+ * is usually written by someone looking at the knowledge base. Kept as a control: the
+ * gap between this set and the customer phrasing above is how much of a score comes
+ * from words the question already shares with the answer, not from search.
+ * Run it with `--phrasing document`.
+ */
+const DOCUMENT_PHRASING: Record<string, string> = {
+  "kb-01": "Which box class should I use for 12 kg, and what are its max weight and price?",
+  "kb-02": "How are fragile goods packed, and what does the Fragile label cost?",
+  "kb-03": "Is own packaging allowed, and are film-wrapped bundles accepted for the International direction?",
+  "kb-04": "Is perishable food or frozen goods carried?",
+  "kb-05": "Are batteries and devices containing them carried, and at what charge?",
+  "kb-06": "Which documents does an EU shipment need, such as an invoice or a declaration?",
+  "kb-07": "Up to what value do goods enter the EU without customs duty, and who pays the duty?",
+  "kb-08": "Do you deliver to Belarus or the Russian Federation?",
+  "kb-09": "How many business days does customs clearance take, and is it counted in the delivery window?",
+  "kb-10": "What does each tracking status mean, and what is its typical duration?",
+  "kb-11": "How often is the status refreshed between scans at a terminal?",
+  "kb-12": "How long is a parcel stored at the pickup point?",
+  "kb-13": "Until what time can courier pickup be ordered for the same day, and what does pickup cost?",
+  "kb-14": "When do drop-off points accept parcels on weekdays, Saturday and Sunday?",
+  "kb-15": "How much does declared value cost, and how is it insured?",
+  "kb-16": "What does insurance not cover?",
+  "kb-17": "What does a claim need, and are photographs of the parcel before opening required?",
+  "kb-18": "How much does cash on delivery cost, and when does the money reach the sender?",
+  "kb-19": "Is cash on delivery available on the International direction?",
+  "kb-20": "How are corporate clients invoiced, and when is the invoice due?",
+  "kb-21": "How is a corporate account opened, and how long does activation take?",
+  "kb-22": "How is API access for creating waybills issued, and is it free?",
+};
+
+export type Phrasing = "customer" | "document";
+
+export function retrievalCases(phrasing: Phrasing = "customer"): RetrievalCase[] {
+  return [
+    ...CASES.map((c) => ({ id: c.id, question: c.question, expected: TRUTH[c.id] ?? [] })),
+    ...RETRIEVAL_ONLY.map((c) =>
+      phrasing === "document" ? { ...c, question: DOCUMENT_PHRASING[c.id] ?? c.question } : c),
+  ];
+}
+
+export const RETRIEVAL_CASES: RetrievalCase[] = retrievalCases("customer");

@@ -4,7 +4,12 @@
  * something else is measured: whether the retriever was honest enough to return nothing.
  */
 import { RETRIEVERS } from "../src/agents/retriever/index.js";
-import { RETRIEVAL_CASES } from "./retrieval-truth.js";
+import { retrievalCases, type Phrasing } from "./retrieval-truth.js";
+
+// --phrasing document: the same targets, asked in the documents' own words.
+const at = process.argv.indexOf("--phrasing");
+const PHRASING = (at >= 0 ? process.argv[at + 1] : "customer") as Phrasing;
+const RETRIEVAL_CASES = retrievalCases(PHRASING);
 
 const K = 3;
 
@@ -51,7 +56,7 @@ for (const name of names) scores[name] = await evaluate(name);
 
 const covered = RETRIEVAL_CASES.filter((c) => c.expected.length > 0).length;
 const uncovered = RETRIEVAL_CASES.length - covered;
-console.log(`\ncases with ground truth: ${covered} · uncovered: ${uncovered} · top-K = ${K}\n`);
+console.log(`\nphrasing: ${PHRASING} · cases with ground truth: ${covered} · uncovered: ${uncovered} · top-K = ${K}\n`);
 
 const rows: [string, keyof Score, string][] = [
   ["hit rate", "hit", "at least one needed passage in the top 3"],
