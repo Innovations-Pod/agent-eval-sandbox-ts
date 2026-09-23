@@ -1,11 +1,13 @@
 /** Wiring OpenTelemetry tracing up to Phoenix (OpenInference conventions).
  *
- * Two things the Python version does not need and this one does:
+ * Three things that are easy to get wrong:
  *
- * 1. `manuallyInstrument()` — under ESM, auto-instrumentation does not get to patch
- *    the module in time: `import Anthropic` runs BEFORE we register the provider,
- *    so we patch the module explicitly.
- * 2. `flushTracing()` — BatchSpanProcessor buffers spans. If the process exits before
+ * 1. A context manager — without one `context.active()` is always empty and every span
+ *    becomes a root: there is no tree. `register()` does not install one.
+ * 2. Auto-instrumentation is off. Spans are written by RunRecorder from LangChain
+ *    callbacks, so they describe our system (AGENT / RETRIEVER / TOOL / LLM), not the
+ *    libraries underneath it.
+ * 3. `flushTracing()` — BatchSpanProcessor buffers spans. If the process exits before
  *    the send timer fires, the last spans (which are precisely the root ones, since
  *    they close last) never arrive and the trace is left without its beginning.
  *    In Python an atexit hook does this; in Node it has to be called by hand.

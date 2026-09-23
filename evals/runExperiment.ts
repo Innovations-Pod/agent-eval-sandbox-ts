@@ -3,12 +3,17 @@
  * The shape: dataset → task (running the system on each case) → evaluators.
  * Each run is a separate named experiment, so they can be compared.
  */
+import { execSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+
 import { createClient } from "@arizeai/phoenix-client";
 import { createDataset, getDatasetInfo } from "@arizeai/phoenix-client/datasets";
 import { runExperiment } from "@arizeai/phoenix-client/experiments";
 
 import { MultiAgentSystem } from "../src/system.js";
-import { AGENT_MODEL, PHOENIX_ENDPOINT, hasApiKey } from "../src/config.js";
+import { TOPOLOGY } from "../src/agents/index.js";
+import { AGENT_MODEL, JUDGE_MODEL, PHOENIX_ENDPOINT, hasApiKey } from "../src/config.js";
 import { flushTracing, initTracing } from "../src/tracing.js";
 import { asExamples } from "./dataset.js";
 import { ALL, DETERMINISTIC } from "./evaluators.js";
@@ -65,6 +70,27 @@ if (wanted) {
   }));
 }
 
+/**
+ * What distinguishes this run from any other, recorded automatically — a month later the
+ * experiment name alone says nothing. The git SHA is not enough on its own: an
+ * uncommitted prompt edit leaves it unchanged, hence the separate prompt hash.
+ */
+function runFingerprint(): Record<string, string> {
+  const sh = (cmd: string): string => execSync(cmd, { encoding: "utf8" }).trim();
+  const dirty = sh("git status --porcelain").length > 0;
+  const prompts = readdirSync("src/agents", { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => `src/agents/${d.name}/prompt.ts`)
+    .filter((f) => existsSync(f))
+    .sort();
+  const hash = createHash("sha256");
+  for (const f of prompts) hash.update(f).update(readFileSync(f));
+  return {
+    git_sha: sh("git rev-parse --short HEAD") + (dirty ? "-dirty" : ""),
+    prompt_sha: hash.digest("hex").slice(0, 8),
+  };
+}
+
 const mas = new MultiAgentSystem();
 const evaluators = flag("no-judges") ? DETERMINISTIC : ALL;
 const stamp = new Date().toISOString().slice(5, 16).replace("T", "_");
@@ -76,7 +102,14 @@ await runExperiment({
   client,
   dataset: { datasetId },
   experimentName: name,
-  experimentMetadata: { agent_model: AGENT_MODEL, runtime: "langgraph" },
+  experimentDescription: value("description"),
+  experimentMetadata: {
+    agent_model: AGENT_MODEL,
+    judge_model: JUDGE_MODEL,
+    runtime: "langgraph",
+    topology: TOPOLOGY,
+    ...runFingerprint(),
+  },
   task: async (example) => {
     // Our dataset puts the question in `question`; a dataset assembled from spans in
     // Phoenix puts it in `input`. We take whichever exists, else the first string.
